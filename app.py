@@ -1,33 +1,47 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 
-# Initialize the OpenAI API key
-openai.api_key = "YOUR_OPENAI_API_KEY"
+# Initialize OpenAI client using Streamlit's secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# Function to interact with the GPT model
-def generate_response(prompt):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # or use 'gpt-4' if you have access
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message['content'].strip()
-    except Exception as e:
-        return f"Error: {e}"
+# Title of the app
+st.title("CJ's Chat aPP")
 
-# Streamlit app setup
-st.title("GPT Chat Interface")
+# Initialize session state for chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Input from the user
-user_input = st.text_input("Enter your message:")
+# Display chat history
+for message in st.session_state.messages:
+    role, content = message["role"], message["content"]
+    with st.chat_message(role):
+        st.markdown(content)
 
-if st.button("Send") and user_input:
-    # Generate response
-    output = generate_response(user_input)
-    st.text_area("Response from GPT:", value=output, height=200)
+# Collect user input
+user_input = st.chat_input("Type your message...")
 
-st.sidebar.header("About")
-st.sidebar.write("This is a simple chat interface using Streamlit and OpenAI's GPT API.")
+# Function to get a response from OpenAI
+def get_response(prompt):
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state.messages
+        ] + [{"role": "user", "content": prompt}]
+    )
+    # Access the content directly as an attribute
+    return response.choices[0].message.content
 
-# Reminder to replace API key
-st.sidebar.warning("Ensure to replace 'YOUR_OPENAI_API_KEY' with your actual OpenAI API key.")
+# Process and display response if there's input
+if user_input:
+    # Append user's message
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Generate assistant's response
+    assistant_response = get_response(user_input)
+    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+
+    with st.chat_message("assistant"):
+        st.markdown(assistant_response)
